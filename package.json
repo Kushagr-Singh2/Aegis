@@ -1,0 +1,27 @@
+{
+  "name": "aegis-backend",
+  "version": "0.1.0",
+  "description": "AEGIS backend service layer — Supabase + PostgreSQL",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "db:push": "supabase db push",
+    "db:reset": "supabase db reset",
+    "db:migrate": "supabase migration up",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "generate:types": "supabase gen types typescript --local > src/types/database.types.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.43.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.4.5",
+    "supabase": "^1.178.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
