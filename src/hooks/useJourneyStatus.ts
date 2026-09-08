@@ -71,18 +71,20 @@ export function useJourneyStatus(): JourneyStatusInfo {
       arrived: Colors.brand.tint,
     };
 
-    // Risk label
+    // Risk label (Phase 2: low, moderate, high, critical)
     const riskLabels: Record<RiskLevel, string> = {
       low: 'Low Risk',
-      medium: 'Moderate Risk',
+      moderate: 'Moderate Risk',
       high: 'High Risk',
+      critical: 'Critical Risk',
     };
 
     // Risk color
     const riskColors: Record<RiskLevel, string> = {
       low: Colors.safe.default,
-      medium: Colors.warning.default,
+      moderate: Colors.warning.default,
       high: Colors.danger.default,
+      critical: Colors.danger.extreme,
     };
 
     return {

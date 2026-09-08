@@ -65,7 +65,7 @@ export function AegisHeader({
           {getGreeting()}, {userName}
         </Heading2>
         <BodySecondary style={styles.tagline}>
-          "Your journey, your safety."
+          "Your journey. Your safety."
         </BodySecondary>
       </View>
     </View>

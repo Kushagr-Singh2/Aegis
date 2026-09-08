@@ -8,6 +8,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useJourneyStore } from '../../store/useJourneyStore';
 import { useJourneyStatus } from '../../hooks/useJourneyStatus';
 import { Card } from '../ui/Card';
@@ -22,6 +23,7 @@ import { MOCK_JOURNEY_CHECKPOINTS } from '../../lib/mockData';
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function JourneyStatus() {
+  const router = useRouter();
   const destination = useJourneyStore((s) => s.destination);
   const status = useJourneyStore((s) => s.status);
   const riskLevel = useJourneyStore((s) => s.riskLevel);
@@ -87,12 +89,23 @@ export function JourneyStatus() {
         </Card>
       )}
 
+      {/* View Full Map / Active Journey Screen CTA */}
+      <Button
+        label="Open Live Navigation Map"
+        variant="primary"
+        size="md"
+        onPress={() => router.push('/active-journey')}
+        leftIcon={
+          <MaterialCommunityIcons name="map-marker-path" size={18} color={Colors.white} />
+        }
+      />
+
       {/* Risk indicator (dev-only toggle) */}
       {!isSOSMode && (
         <Card variant="default" style={styles.riskCard}>
           <Label style={styles.riskTitle}>Risk Level (Mock)</Label>
           <View style={styles.riskButtons}>
-            {(['low', 'medium', 'high'] as const).map((level) => (
+            {(['low', 'moderate', 'high', 'critical'] as const).map((level) => (
               <TouchableOpacity
                 key={level}
                 style={[
@@ -237,19 +250,21 @@ function CheckpointItem({
   );
 }
 
-function getRiskColor(level: 'low' | 'medium' | 'high'): string {
+function getRiskColor(level: 'low' | 'moderate' | 'high' | 'critical'): string {
   return {
     low: Colors.safe.default,
-    medium: Colors.warning.default,
+    moderate: Colors.warning.default,
     high: Colors.danger.default,
+    critical: Colors.danger.extreme,
   }[level];
 }
 
-function getRiskTint(level: 'low' | 'medium' | 'high'): string {
+function getRiskTint(level: 'low' | 'moderate' | 'high' | 'critical'): string {
   return {
     low: Colors.safe.tint,
-    medium: Colors.warning.tint,
+    moderate: Colors.warning.tint,
     high: Colors.danger.tint,
+    critical: Colors.danger.tint,
   }[level];
 }
 

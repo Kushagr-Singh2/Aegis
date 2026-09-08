@@ -1,17 +1,15 @@
 /**
- * AEGIS Home Screen (Phase 1)
+ * AEGIS Home Screen (Phase 2)
  *
  * Core requirement:
  * Immediately communicates: "Tell us where you're going."
  *
- * Sections:
- * 1. AegisHeader: "AEGIS", "Good evening, [User]", "Your journey, your safety."
- * 2. LocationCard: 📍 Current Location, "Getting your location..." (mock GPS)
- * 3. DestinationSearchCard: WHERE ARE YOU GOING?, [ 🔍 Search destination ]
- * 4. RecentDestinationCard: Home, College, Work (tappable shortcuts)
- * 5. Primary CTA: [ START JOURNEY ] (disabled until destination selected)
- * 6. Persistent SOS Button: Opens Emergency Modal (never calls automatically)
- * 7. Search BottomSheet: Mock destination autocomplete
+ * Phase 2 changes:
+ * - "WHERE ARE YOU GOING?" card navigates to /destination-search (full-screen)
+ * - Tapping a recent shortcut goes straight to /route-preview
+ * - START JOURNEY navigates to search or route-preview depending on selection
+ * - Active journey banner links to /active-journey
+ * - Inline search bottom-sheet removed (replaced by dedicated screen)
  */
 
 import React, { useState } from 'react';
@@ -19,9 +17,7 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  TextInput,
   TouchableOpacity,
-  FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -32,25 +28,18 @@ import { DestinationSearchCard } from '../../src/components/home/DestinationSear
 import { RecentDestinationCard } from '../../src/components/home/RecentDestinationCard';
 import { PrimaryButton } from '../../src/components/ui/PrimaryButton';
 import { EmergencyButton } from '../../src/components/ui/EmergencyButton';
-import { Modal } from '../../src/components/ui/Modal';
-import { BottomSheet } from '../../src/components/ui/BottomSheet';
-import { Button } from '../../src/components/ui/Button';
 import {
-  Heading2,
   Heading3,
-  Body,
-  BodySecondary,
   BodySmall,
   Label,
 } from '../../src/components/ui/Typography';
 import { Card } from '../../src/components/ui/Card';
 import { Colors } from '../../src/constants/colors';
-import { Spacing, BorderRadius } from '../../src/constants/spacing';
+import { BorderRadius, Spacing } from '../../src/constants/spacing';
 import { useAppStore } from '../../src/store/useAppStore';
 import { useJourneyStore, type JourneyDestination } from '../../src/store/useJourneyStore';
 import { useJourneyStatus } from '../../src/hooks/useJourneyStatus';
-import { MOCK_DESTINATIONS } from '../../src/lib/mockData';
-import { EmergencyDialer } from '../../src/lib/EmergencyDialer';
+import { SOSConfirmationModal } from '../../src/components/emergency/SOSConfirmationModal';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -58,49 +47,51 @@ export default function HomeScreen() {
 
   const journeyStatus = useJourneyStore((s) => s.status);
   const activeDestination = useJourneyStore((s) => s.destination);
-  const startJourney = useJourneyStore((s) => s.startJourney);
-  const endJourney = useJourneyStore((s) => s.endJourney);
   const journeyInfo = useJourneyStatus();
 
-  // Selected destination state for journey initiation
+  // Destination selected via recent shortcut (triggers route preview directly)
   const [selectedDestination, setSelectedDestination] =
     useState<JourneyDestination | null>(null);
 
-  // Modals
-  const [isSearchSheetVisible, setIsSearchSheetVisible] = useState(false);
   const [isSOSModalVisible, setIsSOSModalVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   const isJourneyActive = journeyStatus === 'active' || journeyStatus === 'sos';
 
-  // Filter mock destinations for the search bottom sheet
-  const filteredDestinations = searchQuery.trim().length > 0
-    ? MOCK_DESTINATIONS.filter(
-        (d) =>
-          d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          d.address.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : MOCK_DESTINATIONS;
-
+  // Tapping a recent destination goes straight to route preview
   const handleSelectDestination = (dest: JourneyDestination) => {
     setSelectedDestination(dest);
-    setIsSearchSheetVisible(false);
+    router.push({
+      pathname: '/route-preview',
+      params: {
+        destName: dest.name,
+        destAddress: dest.address,
+        destEta: dest.estimatedTime,
+      },
+    });
   };
 
+  // "WHERE ARE YOU GOING?" card opens full-screen search
+  const handleGoToSearch = () => {
+    router.push('/destination-search');
+  };
+
+  // START JOURNEY — goes to search if no destination, else route preview
   const handleStartJourney = () => {
-    if (!selectedDestination) return;
-    startJourney(selectedDestination);
-    // Option to transition to Journey tab
-    router.push('/(tabs)/journey');
+    if (selectedDestination) {
+      router.push({
+        pathname: '/route-preview',
+        params: {
+          destName: selectedDestination.name,
+          destAddress: selectedDestination.address,
+          destEta: selectedDestination.estimatedTime,
+        },
+      });
+    } else {
+      router.push('/destination-search');
+    }
   };
 
-  const handleTriggerSOSModal = () => {
-    setIsSOSModalVisible(true);
-  };
-
-  const handleMockDialer112 = () => {
-    EmergencyDialer.callEmergency();
-  };
+  const handleTriggerSOSModal = () => setIsSOSModalVisible(true);
 
   return (
     <SafeScreen style={styles.container}>
@@ -132,7 +123,7 @@ export default function HomeScreen() {
               </View>
               <TouchableOpacity
                 style={styles.viewJourneyBtn}
-                onPress={() => router.push('/(tabs)/journey')}
+                onPress={() => router.push('/active-journey')}
               >
                 <BodySmall color={Colors.brand.primary}>View</BodySmall>
               </TouchableOpacity>
@@ -146,7 +137,7 @@ export default function HomeScreen() {
         {/* 4. Large Destination Card: WHERE ARE YOU GOING? */}
         <DestinationSearchCard
           selectedDestination={selectedDestination}
-          onPressSearch={() => setIsSearchSheetVisible(true)}
+          onPressSearch={handleGoToSearch}
           onClearDestination={() => setSelectedDestination(null)}
         />
 
@@ -160,8 +151,6 @@ export default function HomeScreen() {
         <View style={styles.ctaContainer}>
           <PrimaryButton
             label="START JOURNEY"
-            disabled={!selectedDestination}
-            disabledLabel="Select a destination"
             icon="navigation-variant"
             onPress={handleStartJourney}
           />
@@ -181,155 +170,14 @@ export default function HomeScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Persistent Floating SOS Button for quick one-handed access */}
+      {/* Persistent Floating SOS Button */}
       <EmergencyButton size="floating" onPress={handleTriggerSOSModal} />
 
-      {/* ── Search Bottom Sheet ────────────────────────────────────────── */}
-      <BottomSheet
-        visible={isSearchSheetVisible}
-        onClose={() => setIsSearchSheetVisible(false)}
-        title="Where are you going?"
-        subtitle="Select or search a destination to begin protection"
-      >
-        <View style={styles.sheetContent}>
-          {/* Search Input */}
-          <View style={styles.sheetSearchBox}>
-            <MaterialCommunityIcons
-              name="magnify"
-              size={20}
-              color={Colors.text.tertiary}
-            />
-            <TextInput
-              style={styles.sheetInput}
-              placeholder="Search destination..."
-              placeholderTextColor={Colors.text.tertiary}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoFocus
-              returnKeyType="search"
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity
-                onPress={() => setSearchQuery('')}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <MaterialCommunityIcons
-                  name="close-circle"
-                  size={18}
-                  color={Colors.text.tertiary}
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Results List */}
-          <FlatList
-            data={filteredDestinations}
-            keyExtractor={(item) => item.id}
-            keyboardShouldPersistTaps="handled"
-            style={styles.resultsList}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.resultItem}
-                onPress={() =>
-                  handleSelectDestination({
-                    name: item.name,
-                    address: item.address,
-                    estimatedTime: item.estimatedTime,
-                  })
-                }
-                activeOpacity={0.7}
-              >
-                <View style={styles.resultIconCircle}>
-                  <MaterialCommunityIcons
-                    name="map-marker-outline"
-                    size={20}
-                    color={Colors.brand.primary}
-                  />
-                </View>
-                <View style={styles.resultText}>
-                  <Body numberOfLines={1}>{item.name}</Body>
-                  <BodySmall color={Colors.text.secondary} numberOfLines={1}>
-                    {item.address}
-                  </BodySmall>
-                </View>
-                <View style={styles.resultMeta}>
-                  <BodySmall color={Colors.safe.default}>
-                    {item.estimatedTime}
-                  </BodySmall>
-                  <BodySmall color={Colors.text.tertiary}>
-                    {item.distance}
-                  </BodySmall>
-                </View>
-              </TouchableOpacity>
-            )}
-            ListEmptyComponent={
-              <View style={styles.emptyResults}>
-                <MaterialCommunityIcons
-                  name="map-marker-off"
-                  size={32}
-                  color={Colors.text.tertiary}
-                />
-                <BodySecondary align="center">
-                  No destinations found for "{searchQuery}"
-                </BodySecondary>
-              </View>
-            }
-          />
-        </View>
-      </BottomSheet>
-
-      {/* ── SOS Confirmation / Emergency Modal ──────────────────────────── */}
-      <Modal
+      {/* Universal 2-Step SOS Confirmation Modal */}
+      <SOSConfirmationModal
         visible={isSOSModalVisible}
         onClose={() => setIsSOSModalVisible(false)}
-        title="Emergency Assistance"
-        subtitle="Aegis Emergency Support"
-      >
-        <View style={styles.sosModalContent}>
-          <View style={styles.sosAlertBox}>
-            <MaterialCommunityIcons
-              name="alert-octagon"
-              size={36}
-              color={Colors.danger.default}
-            />
-            <View style={styles.sosAlertText}>
-              <Heading3 style={{ color: Colors.danger.default }}>
-                Emergency Mode (Phase 1)
-              </Heading3>
-              <BodySmall color={Colors.text.secondary}>
-                Zero automatic calls are ever placed. Tapping below opens your Android dialer with 112 pre-filled.
-              </BodySmall>
-            </View>
-          </View>
-
-          <View style={styles.sosActions}>
-            <Button
-              label="Open 112 Dialer (Mock)"
-              variant="danger"
-              size="lg"
-              onPress={() => {
-                setIsSOSModalVisible(false);
-                handleMockDialer112();
-              }}
-              leftIcon={
-                <MaterialCommunityIcons
-                  name="phone-outgoing"
-                  size={20}
-                  color={Colors.white}
-                />
-              }
-            />
-
-            <Button
-              label="Cancel"
-              variant="secondary"
-              size="md"
-              onPress={() => setIsSOSModalVisible(false)}
-            />
-          </View>
-        </View>
-      </Modal>
+      />
     </SafeScreen>
   );
 }
@@ -377,78 +225,5 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 32,
-  },
-  // Search sheet
-  sheetContent: {
-    gap: Spacing.md,
-    maxHeight: 480,
-  },
-  sheetSearchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface.secondary,
-    borderRadius: BorderRadius.input,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.border.default,
-    gap: Spacing.sm,
-  },
-  sheetInput: {
-    flex: 1,
-    color: Colors.text.primary,
-    fontSize: 15,
-    paddingVertical: 2,
-  },
-  resultsList: {
-    maxHeight: 320,
-  },
-  resultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Spacing.sm + 2,
-    paddingHorizontal: Spacing.xs,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.border.subtle,
-    gap: Spacing.sm,
-  },
-  resultIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.surface.secondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  resultText: {
-    flex: 1,
-  },
-  resultMeta: {
-    alignItems: 'flex-end',
-  },
-  emptyResults: {
-    paddingVertical: Spacing.xl,
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  // SOS Modal
-  sosModalContent: {
-    gap: Spacing.lg,
-  },
-  sosAlertBox: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    backgroundColor: Colors.danger.tint,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.danger.default,
-    alignItems: 'center',
-  },
-  sosAlertText: {
-    flex: 1,
-  },
-  sosActions: {
-    gap: Spacing.sm,
   },
 });
